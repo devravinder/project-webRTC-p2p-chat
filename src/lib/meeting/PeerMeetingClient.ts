@@ -716,9 +716,14 @@ export class PeerMeetingClient extends Emitter<EventMap> {
       video: true,
       audio: true,
     });
-    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-      ? "video/webm;codecs=vp9,opus"
-      : "video/webm";
+    // Prefer .mp4 for compatibility (plays everywhere without conversion) —
+    // supported by Chrome 105+/Safari; Firefox and older browsers only do webm.
+    const mimeType = [
+      "video/mp4;codecs=avc1,mp4a",
+      "video/mp4",
+      "video/webm;codecs=vp9,opus",
+      "video/webm",
+    ].find((type) => MediaRecorder.isTypeSupported(type))!;
     const recorder = new MediaRecorder(stream, { mimeType });
     const chunks: Blob[] = [];
     recorder.ondataavailable = (e) => {
@@ -758,7 +763,10 @@ export class PeerMeetingClient extends Emitter<EventMap> {
   }
 
   private async saveRecording(blob: Blob) {
-    const filename = `recording-${new Date().toISOString().replace(/[:.]/g, "-")}.webm`;
+    const baseType = blob.type.split(";")[0];
+    const isMp4 = baseType === "video/mp4";
+    const extension = isMp4 ? "mp4" : "webm";
+    const filename = `recording-${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`;
     const picker = (
       window as unknown as {
         showSaveFilePicker?: (opts: unknown) => Promise<FileSystemFileHandle>;
@@ -769,7 +777,12 @@ export class PeerMeetingClient extends Emitter<EventMap> {
       try {
         const handle = await picker({
           suggestedName: filename,
-          types: [{ description: "WebM video", accept: { "video/webm": [".webm"] } }],
+          types: [
+            {
+              description: isMp4 ? "MP4 video" : "WebM video",
+              accept: { [baseType]: [`.${extension}`] },
+            },
+          ],
         });
         const writable = await (
           handle as unknown as {
