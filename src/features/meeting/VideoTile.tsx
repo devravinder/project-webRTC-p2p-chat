@@ -32,12 +32,34 @@ export function VideoTile({
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
 
-  const toggleFullscreen = () => {
-    if (document.fullscreenElement === containerRef.current) {
+  // Fullscreening your own screen-share preview creates a hall-of-mirrors
+  // feedback loop, so the presenter can't enter (or stay in) fullscreen on it.
+  const blockFullscreen = participant.isSelf && participant.screenSharing;
+
+  useEffect(() => {
+    if (blockFullscreen && document.fullscreenElement === containerRef.current) {
       document.exitFullscreen().catch(() => {});
-    } else {
-      containerRef.current?.requestFullscreen().catch(() => {});
     }
+  }, [blockFullscreen]);
+
+  const toggleFullscreen = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (document.fullscreenElement === container) {
+      document.exitFullscreen().catch(() => {});
+      return;
+    }
+    if (typeof container.requestFullscreen === "function") {
+      container.requestFullscreen().catch(() => {});
+      return;
+    }
+    // iOS Safari/Chrome (WebKit) has no generic Element Fullscreen API —
+    // fall back to the video element's native fullscreen player.
+    const iosVideo = videoRef.current as
+      | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
+      | null;
+    iosVideo?.webkitEnterFullscreen?.();
   };
 
   const hasVideoTrack = !!stream?.getVideoTracks().some((t) => t.enabled);
@@ -77,18 +99,20 @@ export function VideoTile({
         </div>
       )}
 
-      <IconButton
-        label={isFullscreen ? "Exit full screen" : "Full screen"}
-        variant="ghost"
-        size="sm"
-        className="absolute top-2 right-2 bg-black/40 text-white hover:bg-black/60"
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleFullscreen();
-        }}
-      >
-        {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-      </IconButton>
+      {!blockFullscreen && (
+        <IconButton
+          label={isFullscreen ? "Exit full screen" : "Full screen"}
+          variant="ghost"
+          size="sm"
+          className="absolute top-2 right-2 bg-black/40 text-white hover:bg-black/60"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFullscreen();
+          }}
+        >
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </IconButton>
+      )}
 
       <div className="absolute bottom-2 left-2 flex items-center gap-1.5 bg-black/55 backdrop-blur px-2 py-1 rounded-lg text-white text-xs max-w-[calc(100%-1rem)]">
         {!participant.micOn && <MicOff className="h-3.5 w-3.5 shrink-0 text-red-400" />}

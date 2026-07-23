@@ -524,6 +524,17 @@ export class PeerMeetingClient extends Emitter<EventMap> {
   }
 
   private getOutgoingStream(): MediaStream {
+    // While screen sharing, any *new* connection (a peer joining mid-share)
+    // must start with the screen track, not the stale camera track — already
+    // connected peers get the swap via replaceTrack in startScreenShare().
+    if (this.screenSharing && this.screenStream) {
+      const outgoing = new MediaStream();
+      const screenTrack = this.screenStream.getVideoTracks()[0];
+      if (screenTrack) outgoing.addTrack(screenTrack);
+      const audioTrack = this.localStream?.getAudioTracks()[0];
+      if (audioTrack) outgoing.addTrack(audioTrack);
+      return outgoing;
+    }
     return this.localStream ?? new MediaStream();
   }
 

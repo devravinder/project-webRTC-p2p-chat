@@ -26,6 +26,7 @@ export function ControlBar({
 }) {
   const meeting = useMeetingContext();
   const self = meeting.participants.find((p) => p.isSelf);
+  const screenShareSupported = typeof navigator.mediaDevices?.getDisplayMedia === "function";
 
   return (
     <div className="glass flex items-center justify-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-2xl mx-auto">
@@ -46,10 +47,16 @@ export function ControlBar({
       </IconButton>
 
       <IconButton
-        label={meeting.isScreenSharing ? "Stop screen share" : "Share screen"}
+        label={
+          screenShareSupported
+            ? meeting.isScreenSharing
+              ? "Stop screen share"
+              : "Share screen"
+            : "Screen share isn't supported on this browser"
+        }
         variant={meeting.isScreenSharing ? "active" : "default"}
         onClick={meeting.toggleScreenShare}
-        className="hidden sm:inline-flex"
+        disabled={!screenShareSupported}
       >
         {meeting.isScreenSharing ? (
           <ScreenShareOff className="h-5 w-5" />
