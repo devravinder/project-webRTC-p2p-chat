@@ -1,32 +1,13 @@
-# React + TypeScript + Vite
+# P2P Server-less WebRTC Chat
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A Zoom/Teams-style P2P Server-less WebRTC app for chat, audio/video calls, screen share, screen recording, file sharing
 
-Currently, two official plugins are available:
+## Observations
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+1. for custom domains
+   - in pwa options `navigateFallback: null` is importanat
+   - basepath="/" is important in router(RouterProvider)
+      - so github pages looks in repo folder not github root folder
+   - Github pages may ignore underscore files (eg: /assets/_DH_0222.js)
+     - to fix, `.nojekyll` file should be added in public ( root folder )
+   - gh-pages may ignore dotfiles (.nojekyll), so add dotfiles option  
