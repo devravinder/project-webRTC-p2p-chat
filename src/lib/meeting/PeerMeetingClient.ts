@@ -94,7 +94,11 @@ export class PeerMeetingClient extends Emitter<EventMap> {
   private screenSharing = false;
   private screenStream: MediaStream | null = null;
   private originalCamTrack: MediaStreamTrack | null = null;
-  private recording: { recorder: MediaRecorder; stream: MediaStream } | null = null;
+  private recording: {
+    recorder: MediaRecorder;
+    stream: MediaStream;
+    audioContext: AudioContext | null;
+  } | null = null;
   private incomingFiles = new Map<string, IncomingFile>();
   private status: ConnectionStatus = "idle";
 
@@ -716,6 +720,33 @@ export class PeerMeetingClient extends Emitter<EventMap> {
       video: true,
       audio: true,
     });
+
+    // getDisplayMedia's audio track (if any) only carries system/tab sound —
+    // it never includes the mic, so the presenter's own voice would otherwise
+    // be missing. Mix the mic track in via Web Audio so both end up in the
+    // recording.
+    const micTrack = this.localStream?.getAudioTracks()[0];
+    const displayAudioTrack = stream.getAudioTracks()[0];
+    let audioContext: AudioContext | null = null;
+    let mixedAudioTrack: MediaStreamTrack | null = null;
+    if (micTrack || displayAudioTrack) {
+      audioContext = new AudioContext();
+      const destination = audioContext.createMediaStreamDestination();
+      if (micTrack) {
+        audioContext.createMediaStreamSource(new MediaStream([micTrack])).connect(destination);
+      }
+      if (displayAudioTrack) {
+        audioContext
+          .createMediaStreamSource(new MediaStream([displayAudioTrack]))
+          .connect(destination);
+      }
+      mixedAudioTrack = destination.stream.getAudioTracks()[0];
+    }
+
+    const recordStream = new MediaStream();
+    recordStream.addTrack(stream.getVideoTracks()[0]);
+    if (mixedAudioTrack) recordStream.addTrack(mixedAudioTrack);
+
     // Prefer .mp4 for compatibility (plays everywhere without conversion) —
     // supported by Chrome 105+/Safari; Firefox and older browsers only do webm.
     const mimeType = [
@@ -724,7 +755,7 @@ export class PeerMeetingClient extends Emitter<EventMap> {
       "video/webm;codecs=vp9,opus",
       "video/webm",
     ].find((type) => MediaRecorder.isTypeSupported(type))!;
-    const recorder = new MediaRecorder(stream, { mimeType });
+    const recorder = new MediaRecorder(recordStream, { mimeType });
     const chunks: Blob[] = [];
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunks.push(e.data);
@@ -733,11 +764,13 @@ export class PeerMeetingClient extends Emitter<EventMap> {
       const blob = new Blob(chunks, { type: mimeType });
       await this.saveRecording(blob);
       stream.getTracks().forEach((t) => t.stop());
+      mixedAudioTrack?.stop();
+      audioContext?.close().catch(() => {});
     };
     stream.getVideoTracks()[0].onended = () => this.stopRecording();
 
     recorder.start(1000);
-    this.recording = { recorder, stream };
+    this.recording = { recorder, stream, audioContext };
     this.broadcast({
       type: "recording-start",
       senderId: this.selfId,
