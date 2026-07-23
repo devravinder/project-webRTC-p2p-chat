@@ -3,6 +3,7 @@ import { useMeetingContext } from "@/context/MeetingContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { Badge } from "@/components/ui/Badge";
+import { InviteInfo } from "./InviteInfo";
 
 export function ParticipantsPanel({
   maxParticipants,
@@ -26,6 +27,11 @@ export function ParticipantsPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1">
+        {meeting.meetingCode && (
+          <div className="px-1 pb-3 mb-2 border-b border-border">
+            <InviteInfo code={meeting.meetingCode} />
+          </div>
+        )}
         {meeting.participants.map((p) => (
           <div key={p.id} className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-accent/50">
             <Avatar name={p.name} size="sm" />

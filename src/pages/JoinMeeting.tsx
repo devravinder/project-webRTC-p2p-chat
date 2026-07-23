@@ -3,6 +3,7 @@ import { ArrowLeft, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { normalizeEnteredCode } from "@/lib/meeting/shortCode";
 
 export function JoinMeeting({
   onBack,
@@ -18,7 +19,7 @@ export function JoinMeeting({
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const trimmed = code.trim();
-    if (trimmed) onJoin(trimmed);
+    if (trimmed) onJoin(normalizeEnteredCode(trimmed));
   };
 
   return (

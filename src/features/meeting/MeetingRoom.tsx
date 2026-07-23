@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Loader2, Users as UsersIcon, Disc } from "lucide-react";
+import { AlertTriangle, Loader2, Users as UsersIcon, Disc, Share2, X } from "lucide-react";
 import { useMeetingContext } from "@/context/MeetingContext";
 import { MeetingProvider } from "@/context/MeetingContext";
 import { useMeeting } from "@/hooks/useMeeting";
@@ -10,6 +10,7 @@ import { ParticipantsPanel } from "./ParticipantsPanel";
 import { InviteInfo } from "./InviteInfo";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +55,10 @@ function MeetingRoomInner({
 }) {
   const meeting = useMeetingContext();
   const [panel, setPanel] = useState<"chat" | "participants" | null>(null);
+  const [showInvite, setShowInvite] = useState(false);
+  const [seenMessageCount, setSeenMessageCount] = useState(0);
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const prevSharingIds = useRef<Set<string>>(new Set());
 
   const togglePanel = (next: "chat" | "participants") =>
     setPanel((p) => (p === next ? null : next));
@@ -62,6 +67,33 @@ function MeetingRoomInner({
     meeting.leave();
     onExit();
   };
+
+  useEffect(() => {
+    if (panel === "chat") setSeenMessageCount(meeting.messages.length);
+  }, [panel, meeting.messages.length]);
+  const unreadCount = panel === "chat" ? 0 : meeting.messages.length - seenMessageCount;
+
+  useEffect(() => {
+    const sharingNow = new Set(
+      meeting.participants.filter((p) => !p.isSelf && p.screenSharing).map((p) => p.id),
+    );
+
+    if (pinnedId && !sharingNow.has(pinnedId) && prevSharingIds.current.has(pinnedId)) {
+      setPinnedId(null);
+    }
+
+    const isMobile = window.matchMedia("(max-width: 639px)").matches;
+    if (isMobile) {
+      for (const id of sharingNow) {
+        if (!prevSharingIds.current.has(id)) {
+          setPinnedId(id);
+          break;
+        }
+      }
+    }
+
+    prevSharingIds.current = sharingNow;
+  }, [meeting.participants, pinnedId]);
 
   if (meeting.status === "requesting-media" || meeting.status === "connecting") {
     return (
@@ -159,21 +191,36 @@ function MeetingRoomInner({
             </span>
           )}
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-1.5">
+          <IconButton
+            label="Share meeting link"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowInvite(true)}
+          >
+            <Share2 className="h-[18px] w-[18px]" />
+          </IconButton>
+          <ThemeToggle />
+        </div>
       </header>
 
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex flex-col sm:flex-row min-h-0">
         <main className="flex-1 flex flex-col p-3 sm:p-4 gap-4 min-w-0">
           <div className="flex-1 min-h-0">
-            <VideoGrid />
+            <VideoGrid pinnedId={pinnedId} onPinChange={setPinnedId} />
           </div>
-          <ControlBar activePanel={panel} onTogglePanel={togglePanel} onLeave={handleLeave} />
+          <ControlBar
+            activePanel={panel}
+            onTogglePanel={togglePanel}
+            onLeave={handleLeave}
+            unreadCount={unreadCount}
+          />
         </main>
 
         <aside
           className={cn(
-            "w-full sm:w-80 border-l border-border bg-card shrink-0 transition-all overflow-hidden",
-            panel ? "block" : "hidden",
+            "fixed inset-0 z-40 bg-card flex flex-col sm:static sm:inset-auto sm:z-auto sm:w-80 sm:border-l sm:border-border shrink-0 overflow-hidden",
+            panel ? "flex" : "hidden",
           )}
         >
           {panel === "chat" && <ChatPanel onClose={() => setPanel(null)} />}
@@ -182,6 +229,31 @@ function MeetingRoomInner({
           )}
         </aside>
       </div>
+
+      {showInvite && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          onClick={() => setShowInvite(false)}
+        >
+          <Card
+            className="w-full max-w-sm p-6 flex flex-col gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-lg">Meeting info</h2>
+              <IconButton
+                label="Close"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowInvite(false)}
+              >
+                <X className="h-4 w-4" />
+              </IconButton>
+            </div>
+            <InviteInfo code={meeting.meetingCode} />
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

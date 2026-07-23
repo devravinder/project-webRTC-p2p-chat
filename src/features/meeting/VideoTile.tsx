@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
-import { MicOff, ScreenShare, Crown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MicOff, ScreenShare, Crown, Maximize2, Minimize2 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { IconButton } from "@/components/ui/IconButton";
 import { cn } from "@/lib/utils";
 import type { ParticipantInfo } from "@/types/meeting";
 
@@ -8,25 +9,49 @@ export function VideoTile({
   participant,
   stream,
   className,
+  onClick,
 }: {
   participant: ParticipantInfo;
   stream?: MediaStream | null;
   className?: string;
+  onClick?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (videoRef.current) videoRef.current.srcObject = stream ?? null;
   }, [stream]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === containerRef.current);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement === containerRef.current) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      containerRef.current?.requestFullscreen().catch(() => {});
+    }
+  };
 
   const hasVideoTrack = !!stream?.getVideoTracks().some((t) => t.enabled);
   const showVideo = hasVideoTrack && (participant.camOn || participant.screenSharing);
 
   return (
     <div
+      ref={containerRef}
+      onClick={onClick}
       className={cn(
         "relative rounded-2xl overflow-hidden bg-secondary/40 flex items-center justify-center aspect-video",
         participant.speaking && "animate-speaking",
+        onClick && "cursor-pointer",
+        isFullscreen && "bg-black",
         className,
       )}
     >
@@ -51,6 +76,19 @@ export function VideoTile({
           Presenting
         </div>
       )}
+
+      <IconButton
+        label={isFullscreen ? "Exit full screen" : "Full screen"}
+        variant="ghost"
+        size="sm"
+        className="absolute top-2 right-2 bg-black/40 text-white hover:bg-black/60"
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleFullscreen();
+        }}
+      >
+        {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+      </IconButton>
 
       <div className="absolute bottom-2 left-2 flex items-center gap-1.5 bg-black/55 backdrop-blur px-2 py-1 rounded-lg text-white text-xs max-w-[calc(100%-1rem)]">
         {!participant.micOn && <MicOff className="h-3.5 w-3.5 shrink-0 text-red-400" />}

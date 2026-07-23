@@ -149,6 +149,7 @@ export class PeerMeetingClient extends Emitter<EventMap> {
   async joinMeeting(hostCode: string): Promise<void> {
     this.isHost = false;
     this.hostId = hostCode;
+    this.emit("meeting-code", hostCode);
     this.setStatus("requesting-media", "Requesting camera & microphone…");
     await this.acquireLocalMedia();
 

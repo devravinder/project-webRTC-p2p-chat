@@ -17,10 +17,12 @@ export function ControlBar({
   activePanel,
   onTogglePanel,
   onLeave,
+  unreadCount = 0,
 }: {
   activePanel: "chat" | "participants" | null;
   onTogglePanel: (panel: "chat" | "participants") => void;
   onLeave: () => void;
+  unreadCount?: number;
 }) {
   const meeting = useMeetingContext();
   const self = meeting.participants.find((p) => p.isSelf);
@@ -73,6 +75,11 @@ export function ControlBar({
         onClick={() => onTogglePanel("chat")}
       >
         <MessageSquare className="h-5 w-5" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-destructive text-white text-[10px] leading-none flex items-center justify-center px-1">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
       </IconButton>
 
       <IconButton
