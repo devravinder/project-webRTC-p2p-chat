@@ -5,6 +5,10 @@ import "./index.css";
 import App from "./App.tsx";
 import { ThemeProvider } from "./hooks/useTheme.tsx";
 
+if (new URLSearchParams(location.search).get("debug") === "true") {
+  import("eruda").then(({ default: eruda }) => eruda.init());
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider defaultTheme="system" storageKey="meet:theme">
