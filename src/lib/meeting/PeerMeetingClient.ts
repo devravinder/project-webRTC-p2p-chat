@@ -514,16 +514,31 @@ export class PeerMeetingClient extends Emitter<EventMap> {
         video: true,
         audio: true,
       });
-    } catch {
-      try {
-        this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        this.camOn = false;
-      } catch {
-        this.localStream = new MediaStream();
-        this.camOn = false;
-        this.micOn = false;
-      }
+      this.emit("local-stream", this.localStream);
+      return;
+    } catch (err) {
+      // Combined audio+video requests are known to fail on iOS Safari even when
+      // each device would grant separately (WebKit bug) — fall back to acquiring
+      // them independently instead of giving up on video entirely.
+      console.warn("getUserMedia(video+audio) failed, retrying tracks separately", err);
     }
+
+    const stream = new MediaStream();
+    try {
+      const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      videoStream.getVideoTracks().forEach((t) => stream.addTrack(t));
+    } catch (err) {
+      console.warn("getUserMedia(video) failed", err);
+      this.camOn = false;
+    }
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStream.getAudioTracks().forEach((t) => stream.addTrack(t));
+    } catch (err) {
+      console.warn("getUserMedia(audio) failed", err);
+      this.micOn = false;
+    }
+    this.localStream = stream;
     this.emit("local-stream", this.localStream);
   }
 
