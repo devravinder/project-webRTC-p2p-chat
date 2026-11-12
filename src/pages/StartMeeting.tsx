@@ -1,18 +1,26 @@
 import { useState } from "react";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, MessageSquare, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
-import { MAX_PARTICIPANTS_OPTIONS, DEFAULT_MAX_PARTICIPANTS } from "@/types/meeting";
+import {
+  MAX_PARTICIPANTS_OPTIONS,
+  DEFAULT_MAX_PARTICIPANTS,
+  type RoomMode,
+} from "@/types/meeting";
 
 export function StartMeeting({
+  mode,
   onBack,
   onCreate,
 }: {
+  mode: RoomMode;
   onBack: () => void;
   onCreate: (maxParticipants: number) => void;
 }) {
   const [max, setMax] = useState<number>(DEFAULT_MAX_PARTICIPANTS);
+  const isChat = mode === "chat";
+  const HeaderIcon = isChat ? MessageSquare : Users;
 
   return (
     <div className="h-full w-full flex flex-col">
@@ -29,10 +37,10 @@ export function StartMeeting({
         <Card className="w-full max-w-md p-8 flex flex-col gap-6">
           <div className="flex items-center gap-3">
             <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-              <Users className="h-5 w-5" />
+              <HeaderIcon className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="font-semibold text-lg">Start a meeting</h1>
+              <h1 className="font-semibold text-lg">{isChat ? "Start a chat" : "Start a meeting"}</h1>
               <p className="text-sm text-muted-foreground">
                 Choose how many people can join.
               </p>
@@ -57,7 +65,7 @@ export function StartMeeting({
                 </button>
               ))}
             </div>
-            {max > 3 && (
+            {max > 3 && !isChat && (
               <p className="text-xs text-muted-foreground mt-3">
                 Every extra person adds their own direct video connection to
                 everyone else — call quality can drop on slower connections
@@ -67,7 +75,7 @@ export function StartMeeting({
           </div>
 
           <Button size="lg" onClick={() => onCreate(max)}>
-            Create meeting
+            {isChat ? "Create chat" : "Create meeting"}
           </Button>
         </Card>
       </main>

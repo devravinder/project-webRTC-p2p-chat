@@ -29,7 +29,7 @@ export function ParticipantsPanel({
       <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1">
         {meeting.meetingCode && (
           <div className="px-1 pb-3 mb-2 border-b border-border">
-            <InviteInfo code={meeting.meetingCode} />
+            <InviteInfo code={meeting.meetingCode} mode={meeting.mode} />
           </div>
         )}
         {meeting.participants.map((p) => (
@@ -43,16 +43,18 @@ export function ParticipantsPanel({
               </div>
             </div>
             {p.screenSharing && <Badge>Presenting</Badge>}
-            {p.micOn ? (
-              <Mic className="h-4 w-4 text-muted-foreground shrink-0" />
-            ) : (
-              <MicOff className="h-4 w-4 text-destructive shrink-0" />
-            )}
-            {p.camOn ? (
-              <Video className="h-4 w-4 text-muted-foreground shrink-0" />
-            ) : (
-              <VideoOff className="h-4 w-4 text-destructive shrink-0" />
-            )}
+            {meeting.mode === "call" &&
+              (p.micOn ? (
+                <Mic className="h-4 w-4 text-muted-foreground shrink-0" />
+              ) : (
+                <MicOff className="h-4 w-4 text-destructive shrink-0" />
+              ))}
+            {meeting.mode === "call" &&
+              (p.camOn ? (
+                <Video className="h-4 w-4 text-muted-foreground shrink-0" />
+              ) : (
+                <VideoOff className="h-4 w-4 text-destructive shrink-0" />
+              ))}
           </div>
         ))}
       </div>

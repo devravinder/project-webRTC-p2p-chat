@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Copy, Check, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { formatCodeForDisplay } from "@/lib/meeting/shortCode";
+import type { RoomMode } from "@/types/meeting";
 
-export function InviteInfo({ code }: { code: string }) {
+export function InviteInfo({ code, mode = "call" }: { code: string; mode?: RoomMode }) {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -22,7 +23,8 @@ export function InviteInfo({ code }: { code: string }) {
     }
   };
 
-  const inviteLink = `${window.location.origin}${window.location.pathname}?join=${encodeURIComponent(code)}`;
+  // The link carries the room kind, so opening it lands on the right join screen.
+  const inviteLink = `${window.location.origin}${window.location.pathname}?join=${encodeURIComponent(code)}${mode === "chat" ? "&mode=chat" : ""}`;
 
   return (
     <div className="flex flex-col gap-3 w-full">
@@ -41,7 +43,7 @@ export function InviteInfo({ code }: { code: string }) {
       </div>
       <p className="text-xs text-muted-foreground text-center">
         Share this over WhatsApp, email or SMS. Anyone with it can join until
-        the meeting fills up.
+        the {mode === "chat" ? "chat" : "meeting"} fills up.
       </p>
     </div>
   );

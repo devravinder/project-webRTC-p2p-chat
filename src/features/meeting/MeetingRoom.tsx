@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Loader2, Users as UsersIcon, Disc, Share2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Loader2,
+  LogOut,
+  Users as UsersIcon,
+  Disc,
+  Share2,
+  X,
+} from "lucide-react";
 import { useMeetingContext } from "@/context/MeetingContext";
 import { MeetingProvider } from "@/context/MeetingContext";
 import { useMeeting } from "@/hooks/useMeeting";
@@ -13,6 +21,7 @@ import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
+import type { RoomMode } from "@/types/meeting";
 
 function SelfPreview() {
   const meeting = useMeetingContext();
@@ -46,6 +55,36 @@ function CenterState({ children }: { children: React.ReactNode }) {
   );
 }
 
+function InviteDialog({
+  code,
+  mode,
+  onClose,
+}: {
+  code: string;
+  mode: RoomMode;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <Card
+        className="w-full max-w-sm p-6 flex flex-col gap-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-lg">{mode === "chat" ? "Chat info" : "Meeting info"}</h2>
+          <IconButton label="Close" variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </IconButton>
+        </div>
+        <InviteInfo code={code} mode={mode} />
+      </Card>
+    </div>
+  );
+}
+
 function MeetingRoomInner({
   maxParticipants,
   onExit,
@@ -54,6 +93,8 @@ function MeetingRoomInner({
   onExit: () => void;
 }) {
   const meeting = useMeetingContext();
+  const isChat = meeting.mode === "chat";
+  const noun = isChat ? "chat" : "meeting";
   const [panel, setPanel] = useState<"chat" | "participants" | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [seenMessageCount, setSeenMessageCount] = useState(0);
@@ -110,7 +151,7 @@ function MeetingRoomInner({
     return (
       <CenterState>
         <Card className="p-8 flex flex-col items-center gap-5 max-w-sm w-full">
-          <SelfPreview />
+          {!isChat && <SelfPreview />}
           <div className="text-center">
             <h1 className="font-semibold text-lg">Waiting for people to join</h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -118,9 +159,9 @@ function MeetingRoomInner({
               {maxParticipants ? `/${maxParticipants}` : ""} joined
             </p>
           </div>
-          <InviteInfo code={meeting.meetingCode} />
+          <InviteInfo code={meeting.meetingCode} mode={meeting.mode} />
           <Button variant="outline" className="w-full" onClick={handleLeave}>
-            Cancel meeting
+            Cancel {noun}
           </Button>
         </Card>
       </CenterState>
@@ -133,9 +174,9 @@ function MeetingRoomInner({
         <Card className="p-8 flex flex-col items-center gap-4 max-w-sm text-center">
           <AlertTriangle className="h-8 w-8 text-destructive" />
           <div>
-            <h1 className="font-semibold text-lg">Meeting is full</h1>
+            <h1 className="font-semibold text-lg">{isChat ? "Chat" : "Meeting"} is full</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              This meeting has already reached its participant limit.
+              This {noun} has already reached its participant limit.
             </p>
           </div>
           <Button className="w-full" onClick={onExit}>
@@ -167,12 +208,82 @@ function MeetingRoomInner({
     return (
       <CenterState>
         <Card className="p-8 flex flex-col items-center gap-4 max-w-sm text-center">
-          <h1 className="font-semibold text-lg">You left the meeting</h1>
+          <h1 className="font-semibold text-lg">You left the {noun}</h1>
           <Button className="w-full" onClick={onExit}>
             Back to home
           </Button>
         </Card>
       </CenterState>
+    );
+  }
+
+  const inviteDialog = showInvite && (
+    <InviteDialog
+      code={meeting.meetingCode}
+      mode={meeting.mode}
+      onClose={() => setShowInvite(false)}
+    />
+  );
+
+  const participantsAside = (
+    <aside
+      className={cn(
+        "fixed inset-0 z-40 bg-card flex flex-col sm:static sm:inset-auto sm:z-auto sm:w-80 sm:border-l sm:border-border shrink-0 overflow-hidden",
+        panel ? "flex" : "hidden",
+      )}
+    >
+      {panel === "chat" && <ChatPanel onClose={() => setPanel(null)} />}
+      {panel === "participants" && (
+        <ParticipantsPanel maxParticipants={maxParticipants} onClose={() => setPanel(null)} />
+      )}
+    </aside>
+  );
+
+  // connected, chat-only room: the chat is the whole screen
+  if (isChat) {
+    return (
+      <div className="h-full w-full flex flex-col">
+        <header className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <UsersIcon className="h-4 w-4" />
+            {meeting.participants.length}
+            {maxParticipants ? `/${maxParticipants}` : ""}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <IconButton
+              label="Participants"
+              variant={panel === "participants" ? "active" : "ghost"}
+              size="sm"
+              onClick={() => togglePanel("participants")}
+            >
+              <UsersIcon className="h-[18px] w-[18px]" />
+            </IconButton>
+            <IconButton
+              label="Share chat link"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowInvite(true)}
+            >
+              <Share2 className="h-[18px] w-[18px]" />
+            </IconButton>
+            <ThemeToggle />
+            <Button variant="destructive" size="sm" className="ml-1" onClick={handleLeave}>
+              <LogOut className="h-4 w-4" /> Leave
+            </Button>
+          </div>
+        </header>
+
+        <div className="flex-1 flex flex-col sm:flex-row min-h-0">
+          <main className="flex-1 flex justify-center px-3 pb-3 sm:px-4 sm:pb-4 min-w-0 min-h-0">
+            <Card className="w-full max-w-2xl h-full overflow-hidden">
+              <ChatPanel />
+            </Card>
+          </main>
+          {participantsAside}
+        </div>
+
+        {inviteDialog}
+      </div>
     );
   }
 
@@ -217,43 +328,10 @@ function MeetingRoomInner({
           />
         </main>
 
-        <aside
-          className={cn(
-            "fixed inset-0 z-40 bg-card flex flex-col sm:static sm:inset-auto sm:z-auto sm:w-80 sm:border-l sm:border-border shrink-0 overflow-hidden",
-            panel ? "flex" : "hidden",
-          )}
-        >
-          {panel === "chat" && <ChatPanel onClose={() => setPanel(null)} />}
-          {panel === "participants" && (
-            <ParticipantsPanel maxParticipants={maxParticipants} onClose={() => setPanel(null)} />
-          )}
-        </aside>
+        {participantsAside}
       </div>
 
-      {showInvite && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          onClick={() => setShowInvite(false)}
-        >
-          <Card
-            className="w-full max-w-sm p-6 flex flex-col gap-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-lg">Meeting info</h2>
-              <IconButton
-                label="Close"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowInvite(false)}
-              >
-                <X className="h-4 w-4" />
-              </IconButton>
-            </div>
-            <InviteInfo code={meeting.meetingCode} />
-          </Card>
-        </div>
-      )}
+      {inviteDialog}
     </div>
   );
 }
@@ -264,14 +342,16 @@ export type MeetingAction =
 
 export function MeetingRoom({
   name,
+  mode,
   action,
   onExit,
 }: {
   name: string;
+  mode: RoomMode;
   action: MeetingAction;
   onExit: () => void;
 }) {
-  const meeting = useMeeting(name);
+  const meeting = useMeeting(name, mode);
   const startedRef = useRef(false);
 
   useEffect(() => {

@@ -6,9 +6,10 @@ import type {
   ConnectionStatus,
   FileTransferState,
   ParticipantInfo,
+  RoomMode,
 } from "@/types/meeting";
 
-export function useMeeting(selfName: string) {
+export function useMeeting(selfName: string, mode: RoomMode = "call") {
   const clientRef = useRef<PeerMeetingClient | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("");
@@ -24,7 +25,7 @@ export function useMeeting(selfName: string) {
 
   const getClient = useCallback(() => {
     if (!clientRef.current) {
-      clientRef.current = new PeerMeetingClient(selfName);
+      clientRef.current = new PeerMeetingClient(selfName, mode);
     }
     return clientRef.current;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -143,6 +144,7 @@ export function useMeeting(selfName: string) {
   );
 
   return {
+    mode,
     status,
     statusMessage,
     meetingCode,

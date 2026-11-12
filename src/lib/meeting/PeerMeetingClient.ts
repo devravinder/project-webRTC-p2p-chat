@@ -7,6 +7,7 @@ import type {
   ParticipantInfo,
   ProtocolMessage,
   RecordingNotice,
+  RoomMode,
 } from "@/types/meeting";
 import { FILE_CHUNK_SIZE, JOIN_TIMEOUT_MS } from "@/types/meeting";
 
@@ -101,14 +102,25 @@ export class PeerMeetingClient extends Emitter<EventMap> {
   } | null = null;
   private incomingFiles = new Map<string, IncomingFile>();
   private status: ConnectionStatus = "idle";
+  // "chat" rooms never touch the camera or microphone — only data connections.
+  private mode: RoomMode;
 
-  constructor(name: string) {
+  constructor(name: string, mode: RoomMode = "call") {
     super();
     this.selfName = name;
+    this.mode = mode;
+    if (mode === "chat") {
+      this.micOn = false;
+      this.camOn = false;
+    }
   }
 
   getSelfId() {
     return this.selfId;
+  }
+
+  getMode() {
+    return this.mode;
   }
 
   isRecording() {
@@ -124,10 +136,15 @@ export class PeerMeetingClient extends Emitter<EventMap> {
   async startMeeting(maxParticipants: number): Promise<string> {
     this.isHost = true;
     this.maxParticipants = maxParticipants;
-    this.setStatus("requesting-media", "Requesting camera & microphone…");
-    await this.acquireLocalMedia();
+    if (this.mode === "call") {
+      this.setStatus("requesting-media", "Requesting camera & microphone…");
+      await this.acquireLocalMedia();
+    }
 
-    this.setStatus("connecting", "Creating your meeting…");
+    this.setStatus(
+      "connecting",
+      this.mode === "chat" ? "Creating your chat…" : "Creating your meeting…",
+    );
     let lastErr: unknown;
     for (let attempt = 0; attempt < HOST_ID_ATTEMPTS; attempt++) {
       const code = generateShortCode();
@@ -154,10 +171,15 @@ export class PeerMeetingClient extends Emitter<EventMap> {
     this.isHost = false;
     this.hostId = hostCode;
     this.emit("meeting-code", hostCode);
-    this.setStatus("requesting-media", "Requesting camera & microphone…");
-    await this.acquireLocalMedia();
+    if (this.mode === "call") {
+      this.setStatus("requesting-media", "Requesting camera & microphone…");
+      await this.acquireLocalMedia();
+    }
 
-    this.setStatus("connecting", "Connecting to meeting…");
+    this.setStatus(
+      "connecting",
+      this.mode === "chat" ? "Connecting to chat…" : "Connecting to meeting…",
+    );
     try {
       this.peer = await this.createPeerInstance(undefined);
     } catch {
@@ -170,11 +192,13 @@ export class PeerMeetingClient extends Emitter<EventMap> {
     const entry = this.getOrCreateEntry(hostCode, "Host", true);
     const dataConn = this.peer.connect(hostCode, {
       reliable: true,
-      metadata: { name: this.selfName },
+      metadata: { name: this.selfName, mode: this.mode },
     });
     this.wireDataConnection(entry, dataConn);
-    const call = this.peer.call(hostCode, this.getOutgoingStream());
-    this.wireMediaConnection(entry, call);
+    if (this.mode === "call") {
+      const call = this.peer.call(hostCode, this.getOutgoingStream());
+      this.wireMediaConnection(entry, call);
+    }
 
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("timeout")), JOIN_TIMEOUT_MS);
@@ -253,7 +277,18 @@ export class PeerMeetingClient extends Emitter<EventMap> {
 
   private handleIncomingDataConnection(conn: DataConnection) {
     const peerId = conn.peer;
-    const name = (conn.metadata as { name?: string } | undefined)?.name ?? "Guest";
+    const metadata = conn.metadata as { name?: string; mode?: RoomMode } | undefined;
+    const name = metadata?.name ?? "Guest";
+
+    // A call code typed into "Join chat" (or the other way round): tell them which
+    // kind of room this is instead of half-connecting.
+    if ((metadata?.mode ?? "call") !== this.mode) {
+      conn.on("open", () => {
+        conn.send({ type: "wrong-mode", mode: this.mode } satisfies ProtocolMessage);
+        setTimeout(() => conn.close(), 400);
+      });
+      return;
+    }
 
     if (this.isHost && !this.participants.has(peerId)) {
       const activeCount = [...this.participants.values()].filter((p) => p.connected).length;
@@ -271,6 +306,10 @@ export class PeerMeetingClient extends Emitter<EventMap> {
   }
 
   private handleIncomingCall(call: MediaConnection) {
+    if (this.mode === "chat") {
+      call.close();
+      return;
+    }
     const peerId = call.peer;
     const entry = this.getOrCreateEntry(peerId, "Guest", peerId === this.hostId);
     call.answer(this.getOutgoingStream());
@@ -400,6 +439,16 @@ export class PeerMeetingClient extends Emitter<EventMap> {
         this.leave();
         break;
       }
+      case "wrong-mode": {
+        this.leave();
+        this.setStatus(
+          "error",
+          msg.mode === "chat"
+            ? "That code is for a chat, not a call. Go back, pick Chat and join again."
+            : "That code is for a call, not a chat. Go back, pick Call and join again.",
+        );
+        break;
+      }
       case "chat": {
         this.emit("chat", {
           id: msg.id,
@@ -493,11 +542,13 @@ export class PeerMeetingClient extends Emitter<EventMap> {
     if (!this.peer || entry.dataConn) return;
     const dataConn = this.peer.connect(entry.id, {
       reliable: true,
-      metadata: { name: this.selfName },
+      metadata: { name: this.selfName, mode: this.mode },
     });
     this.wireDataConnection(entry, dataConn);
-    const call = this.peer.call(entry.id, this.getOutgoingStream());
-    this.wireMediaConnection(entry, call);
+    if (this.mode === "call") {
+      const call = this.peer.call(entry.id, this.getOutgoingStream());
+      this.wireMediaConnection(entry, call);
+    }
   }
 
   private broadcast(msg: ProtocolMessage) {

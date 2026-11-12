@@ -1,3 +1,6 @@
+/** A room is either a video/audio call (with chat inside) or a text chat only. */
+export type RoomMode = "call" | "chat";
+
 export type ConnectionStatus =
   | "idle"
   | "requesting-media"
@@ -58,6 +61,7 @@ export type ProtocolMessage =
   | { type: "peer-joined"; id: string; name: string }
   | { type: "peer-left"; id: string }
   | { type: "room-full" }
+  | { type: "wrong-mode"; mode: RoomMode }
   | {
       type: "chat";
       id: string;

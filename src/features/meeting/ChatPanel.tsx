@@ -15,7 +15,8 @@ type FeedItem =
   | { kind: "message"; timestamp: number; key: string; data: ReturnType<typeof useMeetingContext>["messages"][number] }
   | { kind: "file"; timestamp: number; key: string; data: ReturnType<typeof useMeetingContext>["files"][number] };
 
-export function ChatPanel({ onClose }: { onClose: () => void }) {
+// `onClose` is left out when the chat is the whole screen (a chat-only room).
+export function ChatPanel({ onClose }: { onClose?: () => void }) {
   const meeting = useMeetingContext();
   const [text, setText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,9 +57,11 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <span className="font-semibold text-sm">Chat &amp; files</span>
-        <IconButton label="Close chat" variant="ghost" size="sm" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </IconButton>
+        {onClose && (
+          <IconButton label="Close chat" variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </IconButton>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">

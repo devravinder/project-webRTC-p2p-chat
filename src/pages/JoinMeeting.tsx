@@ -4,17 +4,21 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { normalizeEnteredCode } from "@/lib/meeting/shortCode";
+import type { RoomMode } from "@/types/meeting";
 
 export function JoinMeeting({
+  mode,
   onBack,
   onJoin,
   initialCode = "",
 }: {
+  mode: RoomMode;
   onBack: () => void;
   onJoin: (code: string) => void;
   initialCode?: string;
 }) {
   const [code, setCode] = useState(initialCode);
+  const noun = mode === "chat" ? "chat" : "meeting";
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -40,7 +44,7 @@ export function JoinMeeting({
               <LogIn className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="font-semibold text-lg">Join a meeting</h1>
+              <h1 className="font-semibold text-lg">Join a {noun}</h1>
               <p className="text-sm text-muted-foreground">
                 Paste the code the host shared with you.
               </p>
@@ -56,7 +60,7 @@ export function JoinMeeting({
               className="text-center tracking-widest font-mono text-base uppercase"
             />
             <Button type="submit" size="lg" disabled={!code.trim()}>
-              Join meeting
+              Join {noun}
             </Button>
           </form>
         </Card>
